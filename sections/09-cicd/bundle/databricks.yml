@@ -1,0 +1,54 @@
+# Lakeshore: a Declarative Automation Bundle (formerly Databricks Asset Bundle)
+# One codebase, three targets. Same files, different overrides.
+
+bundle:
+  name: lakeshore
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Catalog holding the Lakeshore tables. All your data lives in one catalog, so no target overrides it.
+    default: lakeshore
+  output_schema:
+    description: Schema that receives what this bundle builds
+    default: bundle_output
+
+targets:
+  # No `workspace.host` here on purpose. Omit it and the CLI takes the workspace
+  # from your authenticated profile (`--profile`, or DATABRICKS_HOST), so this file
+  # works unchanged in YOUR workspace. Pinning a host is the right call for a company
+  # bundle with fixed workspaces, and the wrong call for a bundle other people run.
+
+  dev:
+    mode: development        # prefixes names, pauses schedules, tags with `dev`
+    default: true
+    variables:
+      output_schema: bundle_dev
+
+  test:
+    # No mode. `presets` sets the behaviour by hand: a name prefix and paused triggers.
+    presets:
+      name_prefix: "[test] "
+      trigger_pause_status: PAUSED
+    variables:
+      output_schema: bundle_test
+
+  prod:
+    mode: production         # clean names; schedules stay exactly as declared
+    workspace:
+      # The CLI refuses `mode: production` without this: it guarantees a single copy
+      # of the bundle instead of one per developer. ${...} keeps it portable.
+      # A single-user path is a teaching simplification. A company deploys prod as a
+      # service principal, with `run_as` and `permissions` set.
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      output_schema: bundle_prod
+    resources:
+      jobs:
+        lakeshore_health_check:
+          schedule:
+            # Remove this override and the prod job runs every morning. Production mode
+            # never unpauses or pauses anything: it deploys what the YAML declares.
+            pause_status: PAUSED

@@ -1,0 +1,16 @@
+# A Lakeflow pipeline as a bundle resource, the same kind of thing you built by hand
+# in Section 7. Development mode sets `development: true` on it. Production mode
+# rejects `development: true`, so we leave the key out and let each target decide.
+
+resources:
+  pipelines:
+    lakeshore_revenue_snapshot:
+      name: lakeshore-revenue-snapshot
+      catalog: ${var.catalog}
+      schema: ${resources.schemas.bundle_output.name}
+      serverless: true
+      configuration:
+        source_table: ${var.catalog}.gold.sdp_orders_by_day
+      libraries:
+        - file:
+            path: ../src/revenue_snapshot.py

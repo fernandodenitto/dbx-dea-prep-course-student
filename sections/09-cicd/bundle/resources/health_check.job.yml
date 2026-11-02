@@ -1,0 +1,23 @@
+# A job resource, declared as code. The notebook it runs ships WITH the bundle
+# (../src), so deploy moves code and configuration together.
+#
+# The schedule declares no pause_status, which means live. Development mode and the
+# test target's preset pause it; the prod target overrides it in databricks.yml.
+
+resources:
+  jobs:
+    lakeshore_health_check:
+      name: lakeshore-health-check
+
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"
+        timezone_id: UTC
+
+      parameters:
+        - name: catalog
+          default: ${var.catalog}
+
+      tasks:
+        - task_key: health_check
+          notebook_task:
+            notebook_path: ../src/health_check.py

@@ -1,0 +1,70 @@
+{
+  "name": "lakeshore-daily",
+  "max_concurrent_runs": 1,
+  "queue": { "enabled": true },
+  "parameters": [
+    { "name": "run_summary", "default": "true" }
+  ],
+  "schedule": {
+    "quartz_cron_expression": "0 0 6 * * ?",
+    "timezone_id": "UTC",
+    "pause_status": "PAUSED"
+  },
+  "tasks": [
+    {
+      "task_key": "ingest_fx",
+      "notebook_task": {
+        "notebook_path": "__GIT_FOLDER__/sections/05-data-ingestion/05-08-rest-and-jdbc",
+        "source": "WORKSPACE"
+      },
+      "max_retries": 2,
+      "min_retry_interval_millis": 60000,
+      "timeout_seconds": 600,
+      "health": {
+        "rules": [
+          { "metric": "RUN_DURATION_SECONDS", "op": "GREATER_THAN", "value": 300 }
+        ]
+      }
+    },
+    {
+      "task_key": "refresh_pipeline",
+      "pipeline_task": {
+        "pipeline_id": "__PIPELINE_ID__",
+        "full_refresh": false
+      }
+    },
+    {
+      "task_key": "quality_checks",
+      "depends_on": [
+        { "task_key": "ingest_fx" },
+        { "task_key": "refresh_pipeline" }
+      ],
+      "notebook_task": {
+        "notebook_path": "__GIT_FOLDER__/sections/06-transformation/06-06-quality-checks",
+        "source": "WORKSPACE"
+      }
+    },
+    {
+      "task_key": "should_summarize",
+      "depends_on": [
+        { "task_key": "quality_checks" }
+      ],
+      "condition_task": {
+        "left": "{{job.parameters.run_summary}}",
+        "op": "EQUAL_TO",
+        "right": "true"
+      }
+    },
+    {
+      "task_key": "build_summary",
+      "depends_on": [
+        { "task_key": "should_summarize", "outcome": "true" }
+      ],
+      "notebook_task": {
+        "notebook_path": "__GIT_FOLDER__/sections/08-lakeflow-jobs/08-02-build-summary",
+        "source": "WORKSPACE",
+        "base_parameters": { "run_id": "{{job.run_id}}" }
+      }
+    }
+  ]
+}
